@@ -1,1 +1,66 @@
 
+# binomial generalised linear model with no interactions, testing for the effect of image variables Blur, Angle, and Open mouth
+
+exclusionmodel<-glm(Correct~Blur+Angle+Open,family=binomial(link="logit") ,data=exclusiondata)
+
+#binomial generalized linear model to test for the effects of participant variables Gender, Age, Redo, Experience, and Completion status
+
+pmodel1<-glm(Correct~PGender+PAge+PRedo+PExperience+Status,family=binomial(link="logit"),data=exclusiondata)
+
+
+#binomial generalized mixed model including Condition, Target Sex and Target Age as fixed factors; choosing random factors based on AIC. Possible random factors are Participant ID, Target ID, and Answer ID. 
+
+glm1<-glm(Correct~Condition+T_Sex+T_Age,family=binomial(link="logit"),data=modeldata)
+
+glmmT<-glmer(Correct~Condition+T_Sex+T_Age+(1|T_ID),data=modeldata,family=binomial(link="logit"))
+
+glmmP<-glmer(Correct~Condition+T_Sex+T_Age+(1|Participant_ID),data= modeldata,family= binomial(link="logit"))
+
+glmmA<-glmer(Correct~Condition+T_Sex+T_Age+(1|A_ID),data=modeldata,family= binomial(link="logit"))
+
+glmmTA<-glmer(Correct~Condition+T_Sex+T_Age+(1|T_ID) +(1|A_ID),data=modeldata,family=binomial(link="logit"))
+
+glmmPA<-glmer(Correct~Condition+T_Sex+T_Age+(1|Participant_ID)+(1|A_ID), data=modeldata,family=binomial(link="logit"))
+
+glmmTP<-glmer(Correct~Condition+T_Sex+T_Age+(1|T_ID) +(1|_ID),data=modeldata,family=binomial(link="logit"))
+
+glmmTAP<-glmer(Correct~Condition+T_Sex+T_Age+(1|T_ID) +(1|A_ID)+(1|Participant_ID),data=modeldata,family=binomial(link="logit"))
+
+#Target + Answer ID model has lowest AIC, those two kept as random factors
+
+#adding control factors Blur, Angle, and Participant Gender to the binomial GLMM
+
+glmmControl<-glmer(Correct~Condition+T_Sex+T_Age+Blur+Angle+Status+PGender+(1|T_ID)+(1|A_ID),data=modeldata,family=binomial(link="logit"))
+
+#model failed to converge, rerunning with a higher number of iterations
+glmmControl2<-update(glmmControl,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
+#multiple contrasts for factors Condition and Target Age
+levels(modeldata$Condition)
+library(lsmeans)
+> leastsquare=lsmeans(glmmControl2,"Condition")
+> Contrasts=list(MothersvsFathers = c(1, -1, 0, 0),
++                MothersvsMaternal = c(1, 0, -1, 0),
++                MothersvsPaternal = c(1, 0, 0, -1),
++                FathersvsMaternal = c(0, 1, -1, 0),
++                FathersvsPaternal = c(0, 1, 0, -1),
++                MaternalvsPaternal = c(0, 0, 1, -1))
+> contrast(leastsquare,Contrasts,adjust="sidak") 
+
+levels(modeldata$T_Age)
+leastsquare2=lsmeans(glmmControl2,"T_Age")
+ Contrasts2=list(AdultvsInfant1 =c(1, -1, 0, 0, 0),
++                 AdultvsInfant2 = c(1, 0, -1, 0, 0),
++                 AdultvsJuvenile =c(1, 0, 0, -1, 0),
++                 AdultvsSubadult = c(1, 0, 0, 0, -1),
++                 Infant1vsInfant2 =c(0, 1, -1, 0, 0),
++                 Infant1vsJuvenile = c(0, 1, 0, -1, 0),
++                 InfantvsSubadult = c(0, 1, 0, 0, -1),
++                 Infant2vsJuvenile =c(0, 0, 1, -1, 0),
++                 Infant2vsSubadult =c(0, 0, 1, 0, -1),
++                 JuvenilevsSubadult =c(0, 0, 0, 1, -1))
+contrast(leastsquare2,Contrasts2,adjust="sidak")
+
+#visuals for multiple comparison
+conbox<-ggplot(condgraph,aes(x=Condition,y=mean,fill=Condition))+geom_boxplot()+geom_jitter(aes(color=T.A_Sex))+ theme_bw()+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+xlab("Condition")+ylab("Mean % correct response across pairs")+ scale_color_brewer(palette="Dark2",name = "Sex of Target-Answer pair", labels = c("F-F", "M-M", "M-F"))+scale_fill_viridis(discrete=TRUE,option="D")
+
+agebox<-ggplot(agegraph,aes(x=Age,y=mean,fill=Age))+geom_boxplot()+geom_jitter(aes(color=T.A_Sex))+theme_bw()+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ylab("Mean % correct response across pairs")+scale_color_brewer(palette="Dark2",name = "Sex of Target-Answer pair", labels = c("F-F", "M-M", "M-F"))+scale_fill_viridis(discrete=TRUE,option="D")+scale_x_discrete(limits=c("I-1","I-2","J","SA","A"))
