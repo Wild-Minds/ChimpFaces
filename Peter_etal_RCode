@@ -1,4 +1,10 @@
-##logistic binomial GLMM Model 3
+##Model 1: binomial generalised linear model with no interactions, testing for the effect of image variables Blur, Angle, and Open mouth
+exclusionmodel<-glm(Correct~Blur+Angle+Open,family=binomial(link="logit") ,data=exclusiondata)
+
+##Model 2: binomial generalized linear model to test for the effects of participant variables Gender, Age, Redo, Experience, and Completion status
+pmodel1<-glm(Correct~PGender+PAge+PRedo+PExperience+Status,family=binomial(link="logit"),data=exclusiondata)
+
+##Model 3: logistic binomial GLMM
 #can users tell if two chimpanzees are kin-related or not
 str(xdata)
 
@@ -77,6 +83,12 @@ as.data.frame(anova(null, full.wors, test="Chisq"))
 tests=as.data.frame(drop1(full.wors, test="Chisq"))
 round(tests, 3)
 
+#results individual levels
+summary(full.wors)
+install.packages("multcomp")
+library(multcomp)
+cftest(full.wors)
+
 #model stability
 source("glmm_stability.r")
 m.stab=glmm.model.stab(model.res=full.wors, contr=contr)
@@ -94,7 +106,6 @@ m.stab.plot(boot.res$ci.estimates)
 #get effect sizes
 library(MuMIn)
 r.squaredGLMM(object=full.wors)
-
 
 
 #visuals for multiple comparison
