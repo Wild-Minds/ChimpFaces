@@ -85,6 +85,12 @@ as.data.frame(anova(null, full.wors, test="Chisq"))
 tests=as.data.frame(drop1(full.wors, test="Chisq"))
 round(tests, 3)
 
+#results individual levels
+summary(full.wors)
+install.packages("multcomp")
+library(multcomp)
+cftest(full.wors)
+
 #model stability
 source("glmm_stability.r")
 m.stab=glmm.model.stab(model.res=full.wors, contr=contr)
