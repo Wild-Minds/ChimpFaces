@@ -1,64 +1,101 @@
+##logistic binomial GLMM Model 3
+#can users tell if two chimpanzees are kin-related or not
+str(xdata)
 
-# binomial generalised linear model with no interactions, testing for the effect of image variables Blur, Angle, and Open mouth
+#are the data balanced wrt the random variables
+table(xdata$A_ID)
+table(xdata$T_ID)
+table(xdata$Trial_No)
 
-exclusionmodel<-glm(Correct~Blur+Angle+Open,family=binomial(link="logit") ,data=exclusiondata)
+#logistic model - are the responses reasonably distributed across individuals
+table(xdata$Correct, xdata$A_ID)
+table(xdata$Correct, xdata$T_ID)
+table(xdata$Correct, xdata$Trial_No)
 
-#binomial generalized linear model to test for the effects of participant variables Gender, Age, Redo, Experience, and Completion status
+#crosstab random effects
+table(xdata$A_ID, xdata$T_ID)
+#loads of zeros - but we're not interested in individual effects so should be ok
 
-pmodel1<-glm(Correct~PGender+PAge+PRedo+PExperience+Status,family=binomial(link="logit"),data=exclusiondata)
+#collapse Gender in to Men vs Other (as in previous model only Men differed from base level ; here women)
+library(forcats)
+xdata$PGender2 <- fct_collapse(xdata$PGender,
+                               Male = c("Male"),
+                               Other = c("Female", "Other", "Prefernottodisclose"))
+table(xdata$PGender2)
+
+#check the random slopes
+source("diagnostic_fcns.r")
+xx.fe.re=fe.re.tab(fe.model="Correct ~ Condition + T_Years + T_Sex + Blur + Angle + Status + PGender2",
+                   re="(1|T_ID)+(1|A_ID)+(1|Trial_No)", data=xdata)
+length(xx.fe.re$summary)
+
+#z transform T_Years value to make results more interpretable
+t.data=xx.fe.re$data
+t.data$z.T_Years=as.vector(scale(t.data$T_Years))
+
+#full model - note can't include interactions or r.slopes as combination matrices too incomplete
+library(lme4)
+contr=glmerControl(optimizer="bobyqa")
+
+#full without random slopes
+full.wors=glmer(Correct ~ Condition + z.T_Years + T_Sex + Blur + PGender2 + Status + Angle +
+                (1|A_ID)+(1|T_ID)+(1|Trial_No),
+              data=t.data, family=binomial, control=contr)
+
+#singular fit message - check random effects
+summary(full.wors)$varcor
+
+#exclude the random intercepts estimated to be 0 -> Trial_No
+red=glmer(Correct ~ Condition + z.T_Years + T_Sex + Blur + PGender2 + Status + Angle +
+                  (1|A_ID)+(1|T_ID),
+                data=t.data, family=binomial, control=contr)
+
+#no singular fit message - check random effects
+summary(red)$varcor
+
+#check results - no real difference use more complete model full.wors
+round(summary(full.wors)$coefficients, 3)
+round(summary(red)$coefficients, 3)
+
+#check BLURPs
+ranef.diagn.plot(full.wors)
+#OK a little broad for random intercept of A_ID and T_ID but others OK
+
+#check colinearity
+xx=lm(Correct ~ Condition + z.T_Years + T_Sex + Blur + PGender2 + Status + Angle, data=t.data)
+library(car)
+vif(xx) #all OK
+
+#full null comparison
+null=glmer(Correct ~ Blur + PGender2 + Status + Angle +
+             (1|A_ID)+(1|T_ID)+(1|Trial_No),
+           data=t.data, family=binomial, control=contr)
+as.data.frame(anova(null, full.wors, test="Chisq"))
+#clear effect of test predictors on accuracy
+
+#results individual predictors
+tests=as.data.frame(drop1(full.wors, test="Chisq"))
+round(tests, 3)
+
+#model stability
+source("glmm_stability.r")
+m.stab=glmm.model.stab(model.res=full.wors, contr=contr)
+table(m.stab$summary)
+m.stab.plot(m.stab$summary[, -1])
+
+#confidence intervals (nb these took > a week to run..)
+source("boot_glmm.r")
+detach(name="package:lmerTest")
+boot.res=boot.glmm.pred(model.res=full.wors, excl.warnings=T, nboots=1000, para=F)
+
+round(boot.res$ci.estimates, 3)
+m.stab.plot(boot.res$ci.estimates)
+
+#get effect sizes
+library(MuMIn)
+r.squaredGLMM(object=full.wors)
 
 
-#binomial generalized mixed model including Condition, Target Sex and Target Age as fixed factors; choosing random factors based on AIC. Possible random factors are Participant ID, Target ID, and Answer ID. 
-
-glm1<-glm(Correct~Condition+T_Sex+T_Age,family=binomial(link="logit"),data=modeldata)
-
-glmmT<-glmer(Correct~Condition+T_Sex+T_Age+(1|T_ID),data=modeldata,family=binomial(link="logit"))
-
-glmmP<-glmer(Correct~Condition+T_Sex+T_Age+(1|Participant_ID),data= modeldata,family= binomial(link="logit"))
-
-glmmA<-glmer(Correct~Condition+T_Sex+T_Age+(1|A_ID),data=modeldata,family= binomial(link="logit"))
-
-glmmTA<-glmer(Correct~Condition+T_Sex+T_Age+(1|T_ID) +(1|A_ID),data=modeldata,family=binomial(link="logit"))
-
-glmmPA<-glmer(Correct~Condition+T_Sex+T_Age+(1|Participant_ID)+(1|A_ID), data=modeldata,family=binomial(link="logit"))
-
-glmmTP<-glmer(Correct~Condition+T_Sex+T_Age+(1|T_ID) +(1|_ID),data=modeldata,family=binomial(link="logit"))
-
-glmmTAP<-glmer(Correct~Condition+T_Sex+T_Age+(1|T_ID) +(1|A_ID)+(1|Participant_ID),data=modeldata,family=binomial(link="logit"))
-
-#Target + Answer ID model has lowest AIC, those two kept as random factors
-
-#adding control factors Blur, Angle, and Participant Gender to the binomial GLMM
-
-glmmControl<-glmer(Correct~Condition+T_Sex+T_Age+Blur+Angle+Status+PGender+(1|T_ID)+(1|A_ID),data=modeldata,family=binomial(link="logit"))
-
-#model failed to converge, rerunning with a higher number of iterations
-glmmControl2<-update(glmmControl,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
-#multiple contrasts for factors Condition and Target Age
-levels(modeldata$Condition)
-library(lsmeans)
-> leastsquare=lsmeans(glmmControl2,"Condition")
-> Contrasts=list(MothersvsFathers = c(1, -1, 0, 0),
-+                MothersvsMaternal = c(1, 0, -1, 0),
-+                MothersvsPaternal = c(1, 0, 0, -1),
-+                FathersvsMaternal = c(0, 1, -1, 0),
-+                FathersvsPaternal = c(0, 1, 0, -1),
-+                MaternalvsPaternal = c(0, 0, 1, -1))
-> contrast(leastsquare,Contrasts,adjust="sidak") 
-
-levels(modeldata$T_Age)
-leastsquare2=lsmeans(glmmControl2,"T_Age")
- Contrasts2=list(AdultvsInfant1 =c(1, -1, 0, 0, 0),
-+                 AdultvsInfant2 = c(1, 0, -1, 0, 0),
-+                 AdultvsJuvenile =c(1, 0, 0, -1, 0),
-+                 AdultvsSubadult = c(1, 0, 0, 0, -1),
-+                 Infant1vsInfant2 =c(0, 1, -1, 0, 0),
-+                 Infant1vsJuvenile = c(0, 1, 0, -1, 0),
-+                 InfantvsSubadult = c(0, 1, 0, 0, -1),
-+                 Infant2vsJuvenile =c(0, 0, 1, -1, 0),
-+                 Infant2vsSubadult =c(0, 0, 1, 0, -1),
-+                 JuvenilevsSubadult =c(0, 0, 0, 1, -1))
-contrast(leastsquare2,Contrasts2,adjust="sidak")
 
 #visuals for multiple comparison
 conbox<-ggplot(condgraph,aes(x=Condition,y=mean,fill=Condition))+geom_boxplot()+geom_jitter(aes(color=T.A_Sex))+ theme_bw()+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+xlab("Condition")+ylab("Mean % correct response across pairs")+ scale_color_brewer(palette="Dark2",name = "Sex of Target-Answer pair", labels = c("F-F", "M-M", "M-F"))+scale_fill_viridis(discrete=TRUE,option="D")
