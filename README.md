@@ -10,3 +10,4 @@ Chimpanzees are capable of recognizing individuals by their faces ([Parr & de Wa
 Here we use a citizen-science approach to test human detection of facial similarity in a community of wild chimpanzees. We test relationships across five age groups from infant to adult, and four kinship types: fathers and their offspring, mothers and their offspring, paternal half-siblings and maternal half-siblings. The full experimental set up is available as an Open Materials page in [Gorilla.sc](https://gorilla.sc/admin/home) under Chimp_faces (https://gorilla.sc/openmaterials/110651)
 
 Code and Data will be made available in this repository.
+May 2022: R code updated, Updated data files added (ChimpFaces - Data for GLMMs_May2022-newages; ChimpFaces -Data GLMMs with no exclusions_May2022-newages)
